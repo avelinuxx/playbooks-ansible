@@ -1,0 +1,35 @@
+---
+- name: Instalar e configurar o agente do Wazuh em Red Hat
+  hosts: SERVER # Lista de servidores
+  become: true
+
+  tasks:
+    - name: Baixar o pacote do agente do Wazuh
+      get_url:
+        url: "https://packages.wazuh.com/4.x/yum/wazuh-agent-4.7.2-1.x86_64.rpm"
+        dest: "/tmp/wazuh-agent-4.7.2-1.x86_64.rpm"
+        mode: '0755'
+
+    - name: Ignorar verificação da assinatura GPG durante a instalação
+      shell: rpm -ivh --nosignature /tmp/wazuh-agent-4.7.2-1.x86_64.rpm
+
+    - name: Configurar o agente do Wazuh
+      lineinfile:
+        path: /var/ossec/etc/ossec.conf
+        line: "<address>1.1.1.1</address>"  # Substitua pelo IP do servidor Wazuh
+        insertbefore: "<port>1514</port>"
+        state: present
+
+    - name: Recarregar systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Habilitar serviço do agente do Wazuh
+      systemd:
+        name: wazuh-agent
+        enabled: yes
+
+    - name: Iniciar serviço do agente do Wazuh
+      systemd:
+        name: wazuh-agent
+        state: started
