@@ -1,0 +1,53 @@
+---
+- name: Substituindo Zabbix Agente 1 pelo Agente 2
+  hosts: zabbix_agents
+  become: yes
+  vars:
+    zabbix_agent2_version: "6.4"  # Ajuste a versão conforme necessário
+    zabbix_repo_url: "https://repo.zabbix.com/zabbix/{{ zabbix_agent2_version }}/rhel/9/x86_64/zabbix-agent2-{{ zabbix_agent2_version }}.16-release1.el9.x86_64.rpm"
+    zabbix_conf_template: "zabbix_agent2.conf.j2"
+
+  tasks:
+    - name: Parando agente do Zabbix 1
+      service:
+        name: zabbix-agent
+        state: stopped
+        enabled: no
+      ignore_errors: yes
+
+    - name: Removendo Zabbix Agent 1
+      yum:
+       name: zabbix
+       state: absent
+
+    - name: Baixando Zabbix Agent 2 repo
+      get_url:
+        url: "{{ zabbix_repo_url }}"
+        dest: "/tmp/zabbix-release.rpm"
+
+    - name: Ignorar verificação da assinatura GPG durante a instalação
+      shell: rpm -ivh --nosignature /tmp/zabbix-release.rpm
+
+    - name: Instalando Zabbix Agent 2 repo
+      yum:
+        name: "/tmp/zabbix-release.rpm"
+        state: present
+
+    - name: Configurando Zabbix Agent 2
+      template:
+        src: "{{ zabbix_conf_template }}"
+        dest: /etc/zabbix/zabbix_agent2.conf
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Habilitando e iniciando Zabbix Agent 2
+      service:
+        name: zabbix-agent2
+        state: started
+        enabled: yes
+
+    - name: Reiniciar o serviço zabbix-agent2
+      service:
+        name: zabbix-agent2
+        state: restarted
